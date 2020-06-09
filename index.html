@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="chrome=1" />
+<title>Card-Game</title>
+<link href="http://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet" type="text/css">
+<link rel="stylesheet" href="cards.css">
+<style>
+html {
+  height: 100%;
+}
+body {
+  display: -webkit-box;
+  -webkit-box-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-font-smoothing: antialiased;
+  background: -moz-radial-gradient(farthest-side, rgba(0,0,0,0) 90%, rgba(0,0,0,0.2) 150%) #fff;
+  background: -webkit-gradient(radial, center center, 500, center center, 1400, from(rgba(0,0,0,0)), to(rgba(0,0,0,0.6))) #fff;
+}
+h1 {
+  font-family: 'Open Sans', sans-serif;
+  color: #fff;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.25);
+  font-size: 60px;
+  margin: 0;
+  position: fixed;
+  bottom: 15px;
+  left: 15px;
+  z-index: -1;
+}
+#table {
+  display: -webkit-box;
+  height: 100%;
+}
+.table > li {
+  opacity: 0.5;
+  -webkit-transition: all 0.4s ease-in-out;
+  -webkit-transition-delay: 0.6s;
+}
+.table > li.next {
+  opacity: 1;
+}
+ul li > li {
+  float: none !important;
+}
+ul li > li:not(:first-of-type) {
+  position: absolute;
+}
+input[type="number"] {
+  border: none;
+  padding: 5px;
+  /*box-shadow: 0 1px 4px #999 inset;
+  border-radius: 3px;*/
+  vertical-align: middle;
+  font-size: inherit;
+  text-align: center;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  display: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+button {
+  display: inline-block;
+  background: -webkit-linear-gradient(#F9F9F9 40%, #E3E3E3 70%);
+  background: -o-linear-gradient(#F9F9F9 40%, #E3E3E3 70%);
+  background: -ms-linear-gradient(#F9F9F9 40%, #E3E3E3 70%);
+  background: -moz-linear-gradient(#F9F9F9 40%, #E3E3E3 70%);
+  background: linear-gradient(#F9F9F9 40%, #E3E3E3 70%);
+  border: 1px solid #999;
+  border-radius: 3px;
+  padding: 5px 8px;
+  outline: none;
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  text-shadow: 1px 1px #fff;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  font-size: 15pt;
+  vertical-align: middle;
+}
+button:hover {
+  border-color: black;
+}
+button:active {
+  background: -webkit-linear-gradient(#E3E3E3 40%, #F9F9F9 70%);
+  background: -o-linear-gradient(#E3E3E3 40%, #F9F9F9 70%);
+  background: -moz-linear-gradient(#E3E3E3 40%, #F9F9F9 70%);
+  background: -ms-linear-gradient(#E3E3E3 40%, #F9F9F9 70%);
+  background: linear-gradient(#E3E3E3 40%, #F9F9F9 70%);
+}
+header {
+  margin: 1em;
+}
+#reshuffles {
+  box-shadow: none;
+  font-size: 100px;
+  background: none;
+  width: 140px;
+  text-align: right;
+}
+#remaining {
+  position: absolute;
+  right: 21px;
+  top: 110px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  width: 25px;
+}
+aside {
+  position: fixed;
+  top: -10px;
+  right: 10px;
+  opacity: 0.2;
+  -webkit-transition: all 0.2s ease-in-out;
+}
+aside:hover {
+  opacity: 1;
+}
+.noselect {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+</style>
+</head>
+<body>
+
+<aside class="noselect">
+  <input type="number" id="reshuffles" value="0" readonly alt="Reshuffles" title="Reshuffles">
+  <input type="number" id="remaining" readonly alt="Cards remaining" title="Cards remaining">
+</aside>
+
+<header class="noselect">
+  <button onclick="debug()" style="position:absolute;left:0">debug</button>
+  <button onclick="game.backToStart()" style="position:absolute;left:0;top:80px">start</button>
+  <button onclick="game.deal()">DEAL</button>
+</header>
+
+<section>
+  <div id="table" class="playingCards faceImages">
+    <ul class="table"></ul>
+  </div>
+</section>
+
+<h1 class="noselect">The Gauntlet</h1>
+<script>
+function debug() {
+  var i = 45;
+  while (i--) {
+    game.deal();
+  }
+}
+
+function Card(rank, suit) {
+  this.suit = suit;
+  this.rank = rank
+}
+
+Card.prototype = {
+  generate: function() {
+    var html = [
+        '<div class="card rank-', this.rank, ' ', this.suit, '">',
+        '<span class="rank">', this.rank.toUpperCase(), '</span>',
+        '<span class="suit">&', this.suit, ';</span>',
+        '</div>'].join('');
+    return html;
+  }
+};
+
+function Gauntlet() {
+  this.cards = [];
+  this.lastCardInColumn = [];
+  this.pointer = 0;
+  this.lastPointer = null;
+  this.container = document.querySelector('.playingCards .table');
+}
+
+Gauntlet.prototype = {
+  NUM_CARDS_TO_DEAL: 7,
+
+  init: function() {
+    this.container.innerHTML = '';
+
+    this.makeDeck(1);
+    this.shuffle(1);
+
+    if (this.lastCardInColumn.length) {
+      this.lastPointer = this.pointer;
+      this.pointer = 0;
+      for (var i = 0, card; card = this.lastCardInColumn[i]; ++i) {
+        for (var j = 0; j < this.cards.length; ++j) {
+          if (card.rank == this.cards[j].rank && card.suit == this.cards[j].suit) {
+            this.cards.splice(j, 1);
+            break;
+          }
+        }
+      }
+    }
+
+    this.cards = this.lastCardInColumn.concat(this.cards);
+
+    // TODO: Figure out better way than 2 of the same loop.
+    for (var i = 0; i < this.NUM_CARDS_TO_DEAL; ++i) {
+      this.container.appendChild(document.createElement('li'));
+    }
+    for (var i = 0; i < this.NUM_CARDS_TO_DEAL; ++i) {
+      this.deal();
+    }
+
+    if (this.lastPointer) {
+      this.pointer = this.lastPointer;
+      this.container.children[0].classList.remove('next');
+      this.container.children[this.pointer].classList.add('next');
+    }
+  },
+
+  deal: function() {
+    if (this.cards.length) {
+      var card = this.cards.shift();
+
+      this.lastCardInColumn[this.pointer] = card;
+
+      var parent = this.container.children[this.pointer];
+      var li = document.createElement('li');
+      li.innerHTML = card.generate();
+      if (parent.children.length) {
+        li.style.top = ((parent.children.length) * 50) + 'px';
+      }
+      parent.appendChild(li);
+
+      document.querySelector('#remaining').value = this.cards.length;
+
+      this.container.children[this.pointer].classList.remove('next');
+
+      this.pointer = ++this.pointer % this.NUM_CARDS_TO_DEAL;
+
+      this.container.children[this.pointer].classList.add('next');
+    } else {
+      this.reset();
+    }
+  },
+
+  makeDeck: function(opt_numDecks) {
+    var ranks = [
+        'a', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'j', 'q', 'k'];
+    var suits = ['clubs', 'hearts', 'diams', 'spades'];
+    var numCards = ranks.length * suits.length;
+    var numDecks = opt_numDecks || 1;
+
+    // Fill the array with 'numDecks' packs of cards.
+    for (var i = 0; i < numDecks; ++i) {
+      for (var j = 0, suit; suit = suits[j]; ++j) {
+        for (var k = 0, rank; rank = ranks[k]; ++k) {
+          this.cards[i * numCards + j * ranks.length + k] = new Card(rank, suit);
+        }
+      }
+    }
+  },
+
+  shuffle: function(opt_numShuffles) {
+    var numShuffles = opt_numShuffles || 1;
+
+    // Shuffle the stack 'numShuffles' times.
+    for (var i = 0; i < numShuffles; i++) {
+      for (var j = 0; j < this.cards.length; j++) {
+        var k = Math.floor(Math.random() * this.cards.length);
+        var temp = this.cards[j];
+        this.cards[j] = this.cards[k];
+        this.cards[k] = temp;
+      }
+    }
+  },
+
+  reset: function() {
+    var reshuffles = document.querySelector('#reshuffles');
+    reshuffles.value = reshuffles.valueAsNumber + 1;
+    this.init();
+  },
+
+  backToStart: function() {
+    this.container.children[this.pointer].classList.remove('next');
+    this.pointer = 0;
+    this.container.children[this.pointer].classList.add('next');
+  }
+};
+
+var game = new Gauntlet();
+game.init();
+</script>
+<!--[if IE]>
+<script src="http://ajax.googleapis.com/ajax/libs/chrome-frame/1/CFInstall.min.js"></script>
+<script>CFInstall.check({mode: 'overlay'});</script>
+<![endif]-->
+</body>
+</html>
